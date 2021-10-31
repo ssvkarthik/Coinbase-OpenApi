@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:email="http://www.mulesoft.org/schema/mule/email"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="9a082114-8ac7-4416-b1f2-951fdaa240b3" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="2afef9da-2003-428d-8885-6db92e6afbe7" >
+		<http:request-connection host="api.coinbase.com" protocol="HTTPS"/>
+	</http:request-config>
+	<email:smtp-config name="Email_SMTP" doc:name="Email SMTP" doc:id="b0bae674-c87a-424a-9b13-3087bb88e2e6" >
+		<email:smtps-connection host="pop.gmail.com" port="995" user="user3@domain.com" password="passwordconnection" >
+			<tls:context enabledProtocols="TLSv1.2,SSLv3" >
+				<tls:trust-store path="aTruststore.jks" password="passwordtrust" />
+				<tls:key-store path="aKeystore" password="passwordkey" />
+			</tls:context>
+		</email:smtps-connection>
+	</email:smtp-config>
+	<flow name="coinbase-openapiFlow" doc:id="078132b3-c948-4799-9a6d-c716c9c8af73" >
+		<http:listener doc:name="Listener" doc:id="a5bd3d77-b020-46e1-8a7b-29b1c29fee8f" config-ref="HTTP_Listener_config" path="/supportedCurrencies"/>
+		<http:request method="GET" doc:name="Request" doc:id="1c8e8f12-300a-4edb-9814-cf515ca33102" config-ref="HTTP_Request_configuration" path="/v2/currencies">
+			<reconnect />
+		</http:request>
+		<logger level="INFO" doc:name="Logger" doc:id="b18e7993-55f9-4c07-8a36-842b0c4bdac4" message="All Currencies: #[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="a821c9f7-d477-4dc4-84a9-d3a021a2d178" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="coinbase-openapiFlow1" doc:id="416bcc4a-3ea1-4c2b-89a1-b5ec18a99b2f" >
+		<http:listener doc:name="Listener" doc:id="ba867ff6-3060-4b52-ac42-17e0390e9972" config-ref="HTTP_Listener_config" path="/exchangeRate"/>
+		<http:request method="GET" doc:name="Request" doc:id="a5a25228-ad40-4846-8208-5d13538f1bc6" path="/v2/exchange-rates" config-ref="HTTP_Request_configuration">
+			<reconnect />
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"currency" : attributes.queryParams.currency
+}]]]></http:query-params>
+		</http:request>
+		<logger level="INFO" doc:name="Logger" doc:id="f111bc05-89c9-4b68-a32f-9ad53c045bf1" message="Exchange Rate:  #[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="635938ff-3939-4a29-ae69-4fcc667311bc" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="coinbase-openapiFlow2" doc:id="a4cb1836-aef2-4ba9-b87e-720266598c46" >
+		<http:listener doc:name="Listener" doc:id="08308359-4e5f-4159-a0c7-21ab3a5fee68" config-ref="HTTP_Listener_config" path="/bitcoinTrade"/>
+		<scatter-gather doc:name="Scatter-Gather" doc:id="164b570c-5ae7-4962-aee9-37119e12af2b" >
+			<route >
+				<http:request method="GET" doc:name="Buy" doc:id="c95f0385-f375-4986-aa2d-3a8047ce7c24" config-ref="HTTP_Request_configuration" path="/v2/prices/{currencypair}/buy">
+					<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"currencypair" : attributes.queryParams.currencyPair
+}]]]></http:uri-params>
+				</http:request>
+			</route>
+			<route >
+				<http:request method="GET" doc:name="Sell" doc:id="da4cf50b-43eb-4174-a3dc-9fe71d4c1daf" config-ref="HTTP_Request_configuration" path="/v2/prices/{currencypair}/sell">
+					<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"currencypair" : attributes.queryParams.currencyPair
+}]]]></http:uri-params>
+				</http:request>
+			</route>
+			<route >
+				<http:request method="GET" doc:name="Spot" doc:id="fd077bab-11e6-4518-b368-f4098246d88e" config-ref="HTTP_Request_configuration" path="/v2/prices/{currencypair}/spot">
+					<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"currencypair" : attributes.queryParams.currencyPair
+}]]]></http:uri-params>
+				</http:request>
+			</route>
+		</scatter-gather>
+		<logger level="INFO" doc:name="Logger" doc:id="882fd029-9dd4-4ced-b747-3426982d258a" message="BitCoin Exchange Rates:  #[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="a34797c1-feb5-4008-9cc8-bbaaa18a59cd" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+
+{
+	"Buy": payload."0".payload,
+	"Sell": payload."1".payload,
+	"Spot": payload."2".payload
+	
+	}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="coinbase-openapiFlow3" doc:id="a13844e1-cfa3-4a9a-abd9-c4d6ab096328" >
+		<http:listener doc:name="Listener" doc:id="dd71d913-c02e-4ace-a458-09f11ab085ff" config-ref="HTTP_Listener_config" path="/getCurrentTime"/>
+		<http:request method="GET" doc:name="Request" doc:id="913d3a6c-afa8-4983-9b99-a4a817d4a73f" config-ref="HTTP_Request_configuration" path="/v2/time"/>
+		<logger level="INFO" doc:name="Logger" doc:id="c168aff7-b262-4926-bf7d-bda30043faa9" message="Get CurrentTime: #[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="e9e7607d-7f0f-4883-9ab9-b915c5e45ddf" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="coinbase-openapiFlow4" doc:id="b31945ed-5dc1-4c2d-bc7c-6d44a16e0f08" >
+		<http:listener doc:name="Listener" doc:id="1417ae9e-4dfd-4ac4-ace7-32ae1014bf33" config-ref="HTTP_Listener_config"/>
+	</flow>
+	<flow name="coinbase-openapiFlow5" doc:id="4a1285d4-c0ab-415c-88db-c47875f786a1" >
+		<scheduler doc:name="Scheduler" doc:id="37828177-05d7-4fde-a262-16cf975c1dbf" >
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+		</scheduler>
+		<email:send doc:name="Send" doc:id="df5db1e0-be96-46b3-a253-c4dd88277475" config-ref="Email_SMTP" toAddresses=""/>
+	</flow>
+
+</mule>
