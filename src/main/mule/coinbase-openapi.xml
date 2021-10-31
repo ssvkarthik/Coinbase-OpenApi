@@ -13,14 +13,6 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
 	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="2afef9da-2003-428d-8885-6db92e6afbe7" >
 		<http:request-connection host="api.coinbase.com" protocol="HTTPS"/>
 	</http:request-config>
-	<email:smtp-config name="Email_SMTP" doc:name="Email SMTP" doc:id="b0bae674-c87a-424a-9b13-3087bb88e2e6" >
-		<email:smtps-connection host="pop.gmail.com" port="995" user="user3@domain.com" password="passwordconnection" >
-			<tls:context enabledProtocols="TLSv1.2,SSLv3" >
-				<tls:trust-store path="aTruststore.jks" password="passwordtrust" />
-				<tls:key-store path="aKeystore" password="passwordkey" />
-			</tls:context>
-		</email:smtps-connection>
-	</email:smtp-config>
 	<flow name="coinbase-openapiFlow" doc:id="078132b3-c948-4799-9a6d-c716c9c8af73" >
 		<http:listener doc:name="Listener" doc:id="a5bd3d77-b020-46e1-8a7b-29b1c29fee8f" config-ref="HTTP_Listener_config" path="/supportedCurrencies"/>
 		<http:request method="GET" doc:name="Request" doc:id="1c8e8f12-300a-4edb-9814-cf515ca33102" config-ref="HTTP_Request_configuration" path="/v2/currencies">
@@ -115,17 +107,6 @@ output application/json
 payload]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-	</flow>
-	<flow name="coinbase-openapiFlow4" doc:id="b31945ed-5dc1-4c2d-bc7c-6d44a16e0f08" >
-		<http:listener doc:name="Listener" doc:id="1417ae9e-4dfd-4ac4-ace7-32ae1014bf33" config-ref="HTTP_Listener_config"/>
-	</flow>
-	<flow name="coinbase-openapiFlow5" doc:id="4a1285d4-c0ab-415c-88db-c47875f786a1" >
-		<scheduler doc:name="Scheduler" doc:id="37828177-05d7-4fde-a262-16cf975c1dbf" >
-			<scheduling-strategy >
-				<fixed-frequency />
-			</scheduling-strategy>
-		</scheduler>
-		<email:send doc:name="Send" doc:id="df5db1e0-be96-46b3-a253-c4dd88277475" config-ref="Email_SMTP" toAddresses=""/>
 	</flow>
 
 </mule>
